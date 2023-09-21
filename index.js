@@ -1,88 +1,103 @@
-var mbr = mbr || {};
+var RE = {
+  CAPITAL_SYMBOL: /[A-Z]/g
+};
 
-(function () {
-  var CONST = {
-    DASH: '-',
-    SEMICOLON: ';',
-    AT: '@',
-    EMPTY: '',
-    SPACE: ' ',
-    COLON: ':',
-    COMMA_SPACE: ', ',
-    LBRACE: '{',
-    RBRACE: '}',
-    STYLE: 'style'
-  };
-  var RE = {
-    toCamel: /-([a-z])/g,
-    fromCamel: /[A-Z]/g
-  };
+function fromCamel(letter) {
+  return '-' + letter.toLowerCase();
+}
 
-  function toCamel(full, letter) {
-    return letter.toUpperCase();
+var camel = {
+  from: function(string) {
+    return string.replace(RE.CAPITAL_SYMBOL, fromCamel);
   }
-  function fromCamel(letter) {
-    return CONST.DASH + letter.toLowerCase();
-  }
+}
 
-  var camel = {
-    to: function (string) {
-      return string.replace(RE.toCamel, toCamel);
-    },
-    from: function(string) {
-      return string.replace(RE.fromCamel, fromCamel);
-    }
-  }
+function toStyles(styleObject, parent) {
+  var rules = [];
+  var children = {};
+  var styles = [];
+  var key;
+  parent = parent || '';
 
-  function toStyles(styleObject, parent) {
-    var rules = [];
-    var children = {};
-    var styles = [];
-    var key;
-    parent = parent || CONST.EMPTY;
-
-    for (key in styleObject) {
-      if (styleObject[key] instanceof Object) {
-        children[key] = styleObject[key];
+  for (key in styleObject) {
+    if (styleObject[key] instanceof Object) {
+      children[key] = styleObject[key];
+    } else {
+      if (key[0] === '@') {
+        rules.push(camel.from(key) + ' ' + styleObject[key] + ';')
       } else {
-        if (key[0] === CONST.AT) {
-          rules.push(camel.from(key) + CONST.SPACE + styleObject[key] + CONST.SEMICOLON)
-        } else {
-          rules.push(camel.from(key) + CONST.COLON + styleObject[key] + CONST.SEMICOLON);
-        }
+        rules.push(camel.from(key) + ':' + styleObject[key] + ';');
       }
     }
+  }
 
-    (rules.length && parent) && styles.push({selector: parent, rules: rules});
-    for (key in children) {
-      if (key[0] === CONST.AT) {
-        styles.push({selector: parent + key, group: toStyles(children[key])});
-      } else {
-        styles = styles.concat(toStyles(children[key], parent + key));
-      }
+  (rules.length && parent) && styles.push({ selector: parent, rules: rules });
+  for (key in children) {
+    if (key[0] === '@') {
+      styles.push({ selector: parent + key, group: toStyles(children[key]) });
+    } else {
+      styles = styles.concat(toStyles(children[key], parent + key));
     }
-
-    return styles;
   }
 
-  function renderAllStyles(styles) {
-    var string = '';
-    for (var i = 0, l = styles.length; i < l; i++) {
-      string += styles[i].selector +
-        (styles[i].types ? (CONST.SPACE + styles[i].types.join(CONST.COMMA_SPACE)) : CONST.EMPTY) +
-        CONST.LBRACE +
-        (styles[i].rules ? styles[i].rules.join(CONST.EMPTY) : CONST.EMPTY) +
-        (styles[i].group ? renderAllStyles(styles[i].group) : CONST.EMPTY) +
-        CONST.RBRACE;
-    }
-    return string;
+  return styles;
+}
+
+function renderAll(styles) {
+  var string = '';
+
+  for (var index = 0; index < styles.length; index++) {
+    string += styles[index].selector +
+      (styles[index].types ? (' ' + styles[index].types.join(', ')) : '') +
+      '{' +
+      (styles[index].rules ? styles[index].rules.join('') : '') +
+      (styles[index].group ? renderAll(styles[index].group) : '') +
+      '}';
+  }
+  return string;
+}
+
+function render (stylesObject) {
+  return renderAll(toStyles(stylesObject));
+}
+
+function Styles (target) {
+  this.target = target;
+  this.styles = {};
+  this.isRenderQueued = false;
+}
+Styles.prototype.toString = function () {
+  var result = '';
+
+  for (var key in this.styles) {
+    result += render(this.styles[key]);
   }
 
-  mbr.stylesheet = function (model, parent) {
-    this.model = model;
-    this.styles = toStyles(model);
-    this.element = (parent && parent.documentElement || window.document).createElement(CONST.STYLE);
-    this.element.innerHTML = renderAllStyles(this.styles);
-    parent && parent.appendChild(this.element);
+  return result;
+}
+Styles.prototype.render = function () {
+  var styles = this;
+
+  if (!this.isRenderQueued) {
+    this.isRenderQueued = true;
+
+    Promise.resolve().then(function () {
+      styles.target.textContent = styles.toString();
+      styles.isRenderQueued = false;
+    });
   }
-})()
+}
+Styles.prototype.add = function (key, styles) {
+  if (this.styles[key] === styles) {
+    return;
+  }
+
+  this.styles[key] = styles;
+  this.render();
+}
+Styles.prototype.del = function (key) {
+  delete this.styles[key];
+  this.render();
+}
+
+export { Styles };
