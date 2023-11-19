@@ -89,15 +89,22 @@ Styles.prototype.render = function () {
 }
 Styles.prototype.add = function (key, styles) {
   if (this.styles[key] === styles) {
-    return;
+    return this;
   }
 
   this.styles[key] = styles;
   this.render();
+
+  return this;
 }
 Styles.prototype.del = function (key) {
   delete this.styles[key];
   this.render();
+
+  return this;
 }
+Styles.create = function () {
+  return new Styles(document.createElement('styles'));
+};
 
 export { Styles };
