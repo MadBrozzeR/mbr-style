@@ -16,7 +16,7 @@ declare module 'mbr-style' {
     render(): void;
     toString(): string;
 
-    add(key: string, StyleRoot): Styles;
+    add(key: string, styles: StyleRoot): Styles;
     del(key: string): Styles;
   }
 }
