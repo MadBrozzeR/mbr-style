@@ -106,5 +106,8 @@ Styles.prototype.del = function (key) {
 Styles.create = function () {
   return new Styles(document.createElement('style'));
 };
+Styles.compile = function (styles) {
+  return render(styles);
+};
 
 export { Styles };

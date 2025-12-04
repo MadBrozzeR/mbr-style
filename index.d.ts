@@ -12,6 +12,9 @@ declare module 'mbr-style' {
     isRenderQueued: boolean;
 
     static create(): Styles;
+    static compile(styles: StyleRoot): string;
+
+    constructor(target: HTMLStyleElement);
 
     render(): void;
     toString(): string;
